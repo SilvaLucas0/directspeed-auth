@@ -16,7 +16,7 @@ app.use(express.json());
 // Formato: "CHAVE": { user, expiresAt (null = sem expiração), active }
 const KEYS = {
   "DS-ALFA-2024-0001": {
-    user: "Ana",
+    user: "Lucas Silva",
     expiresAt: null,   // sem expiração
     active: true
   },
