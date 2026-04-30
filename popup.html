@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <title>DirectSpeed</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#07090f;--panel:#0d1117;--panel2:#131920;
+      --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+      --accent:#00e5ff;--accent2:#7c3aed;
+      --green:#00c853;--red:#ff1744;--yellow:#ffab00;
+      --text:#e4e8f0;--muted:#4a5568;--muted2:#718096;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html{width:420px}
+    body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);width:420px;min-height:300px;overflow-x:hidden}
+    body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,229,255,0.01) 2px,rgba(0,229,255,0.01) 4px);pointer-events:none;z-index:0}
+
+    /* ── SCREENS ── */
+    .screen{position:relative;z-index:1;padding:20px;display:none}
+    .screen.active{display:block}
+
+    /* ── MINIMIZED STATE ── */
+    #minimizedBar{display:none;position:relative;z-index:1;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--border)}
+    #minimizedBar.show{display:flex}
+    .mini-brand{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#fff}
+    .mini-brand span{color:var(--accent)}
+    .mini-status{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid var(--border2);color:var(--muted2)}
+    .mini-status.running{border-color:rgba(0,200,83,.3);color:var(--green)}
+    .mini-expand{background:none;border:1px solid var(--border2);color:var(--muted2);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-family:'Space Grotesk',sans-serif}
+    .mini-expand:hover{border-color:var(--accent);color:var(--accent)}
+
+    /* ── LOGIN SCREEN ── */
+    .login-wrap{text-align:center;padding:10px 0 4px}
+    .login-logo{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:20px}
+    .brand-name{font-size:22px;font-weight:700;color:#fff}
+    .brand-name span{color:var(--accent)}
+    .brand-tag{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted2);letter-spacing:2px;text-transform:uppercase}
+    .login-subtitle{font-size:13px;color:var(--muted2);margin-bottom:24px;line-height:1.5}
+    .key-input-wrap{position:relative;margin-bottom:14px}
+    .key-input-wrap input{width:100%;background:var(--panel2);border:1px solid var(--border2);color:var(--text);border-radius:10px;padding:12px 44px 12px 14px;font-family:'IBM Plex Mono',monospace;font-size:14px;outline:none;letter-spacing:2px;transition:border-color .2s}
+    .key-input-wrap input:focus{border-color:rgba(0,229,255,.5)}
+    .key-eye{position:absolute;right:14px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted2);font-size:16px;user-select:none}
+    .login-error{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--red);background:rgba(255,23,68,.08);border:1px solid rgba(255,23,68,.2);border-radius:8px;padding:8px 12px;margin-bottom:12px;display:none}
+    .login-info{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted2);margin-top:16px}
+
+    /* ── HEADER ── */
+    .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+    .header-brand{display:flex;align-items:center;gap:8px}
+    .header-name{font-size:15px;font-weight:700;color:#fff}
+    .header-name span{color:var(--accent)}
+    .user-pill{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent2);background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:20px;padding:3px 10px}
+    .header-right{display:flex;align-items:center;gap:6px}
+    .status-pill{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted2);background:var(--panel2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;cursor:pointer;transition:all .2s}
+    .status-pill:hover{border-color:rgba(0,229,255,.3)}
+    .status-pill.online{border-color:rgba(0,200,83,.3);color:var(--green)}
+    .sdot{width:5px;height:5px;border-radius:50%;background:var(--muted);transition:background .3s}
+    .status-pill.online .sdot{background:var(--green);box-shadow:0 0 5px var(--green);animation:pulse 2s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .minimize-btn{background:none;border:1px solid var(--border2);color:var(--muted2);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;transition:all .2s}
+    .minimize-btn:hover{border-color:var(--accent);color:var(--accent)}
+    .logout-btn{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0}
+    .logout-btn:hover{color:var(--red)}
+
+    /* ── STATUS BAR ── */
+    .status-bar{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:7px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+    .status-bar-txt{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted2)}
+    .status-bar-txt.running{color:var(--green)}
+    .status-bar-txt.warn{color:var(--yellow)}
+    .status-bar-txt.err{color:var(--red)}
+    .msg-active-badge{font-family:'IBM Plex Mono',monospace;font-size:9px;background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.2);color:var(--accent);border-radius:20px;padding:2px 8px}
+
+    /* Stats */
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px}
+    .stat{background:var(--panel);padding:10px 8px;text-align:center}
+    .sv{font-size:20px;font-weight:700;display:block;line-height:1;font-variant-numeric:tabular-nums}
+    .sv.c{color:var(--accent)}.sv.g{color:var(--green)}.sv.r{color:var(--red)}.sv.y{color:var(--yellow)}
+    .sl{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:.8px;margin-top:4px;display:block}
+
+    /* Tabs */
+    .tabs{display:flex;gap:3px;margin-bottom:12px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:4px}
+    .tab{flex:1;padding:7px 6px;border-radius:8px;border:none;background:transparent;color:var(--muted2);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;text-align:center}
+    .tab.active{background:var(--panel2);color:var(--text);border:1px solid var(--border2)}
+    .tc{display:none}.tc.active{display:block}
+
+    /* Card */
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px}
+    .card:last-child{margin-bottom:0}
+    .ch{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border)}
+    .ct{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted2);display:flex;align-items:center;gap:6px}
+    .cb{padding:14px}
+    .dc{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+    .dc.cyan{background:var(--accent);box-shadow:0 0 5px var(--accent)}
+    .dc.purple{background:var(--accent2);box-shadow:0 0 5px var(--accent2)}
+    .dc.yellow{background:var(--yellow);box-shadow:0 0 5px var(--yellow)}
+    .dc.green{background:var(--green);box-shadow:0 0 5px var(--green)}
+    .dc.red{background:var(--red);box-shadow:0 0 5px var(--red)}
+    .dc.gray{background:var(--muted2)}
+
+    /* Form */
+    label.lbl{display:block;font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted2);margin-bottom:5px}
+    input,textarea,select{width:100%;background:var(--panel2);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:8px 11px;font-family:'Space Grotesk',sans-serif;font-size:13px;outline:none;transition:border-color .2s;margin-bottom:10px;resize:vertical}
+    input::placeholder,textarea::placeholder{color:var(--muted)}
+    input:focus,textarea:focus,select:focus{border-color:rgba(0,229,255,.4)}
+    select{appearance:none;cursor:pointer}
+    .r2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+    /* Toggle */
+    .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
+    .toggle-row:last-child{border-bottom:none}
+    .toggle-label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text)}
+    .toggle-label small{display:block;color:var(--muted2);font-size:9px;margin-top:1px}
+    .toggle{position:relative;width:38px;height:20px;flex-shrink:0}
+    .toggle input{opacity:0;width:0;height:0}
+    .toggle-track{position:absolute;inset:0;background:var(--panel2);border:1px solid var(--border2);border-radius:20px;cursor:pointer;transition:background .2s}
+    .toggle input:checked + .toggle-track{background:var(--green);border-color:var(--green)}
+    .toggle-thumb{position:absolute;top:2px;left:2px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .2s;pointer-events:none}
+    .toggle input:checked ~ .toggle-thumb{transform:translateX(18px)}
+
+    /* Buttons */
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 13px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+    .btn:hover{background:rgba(255,255,255,.05)}
+    .btn:active{transform:scale(.97)}
+    .btn:disabled{opacity:.35;cursor:not-allowed}
+    .btn-sm{padding:5px 10px;font-size:11px}
+    .btn-cyan{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700}
+    .btn-cyan:hover{background:#33eaff;box-shadow:0 0 16px rgba(0,229,255,.3)}
+    .btn-purple{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+    .btn-purple:hover{background:#6d28d9}
+    .btn-danger{border-color:rgba(255,23,68,.35);color:var(--red)}
+    .btn-danger:hover{background:rgba(255,23,68,.07)}
+    .btn-success{border-color:rgba(0,200,83,.35);color:var(--green)}
+    .btn-success:hover{background:rgba(0,200,83,.07)}
+    .btn-full{width:100%;justify-content:center}
+
+    /* Mission btn */
+    .mbtn{width:100%;padding:12px;background:transparent;border:1px solid var(--accent);border-radius:10px;color:var(--accent);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+    .mbtn:hover{box-shadow:0 0 24px rgba(0,229,255,.15)}
+    .mbtn:disabled{opacity:.35;cursor:not-allowed}
+    .mbtn.running{border-color:var(--yellow);color:var(--yellow)}
+
+    /* Progress */
+    .pw{height:2px;background:var(--panel2);border-radius:2px;overflow:hidden;margin:10px 0 4px}
+    .pb{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:2px;transition:width .6s}
+    .plb{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted2)}
+
+    /* Ctrl row */
+    .cr{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+
+    /* Leads */
+    .ls{max-height:180px;overflow-y:auto;padding:3px}
+    .ls::-webkit-scrollbar{width:2px}
+    .ls::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+    .lr{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;border:1px solid transparent;margin-bottom:2px;transition:all .2s;animation:fi .2s ease}
+    @keyframes fi{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
+    .lr:hover{background:var(--panel2);border-color:var(--border)}
+    .lr.processando{background:rgba(255,171,0,.04);border-color:rgba(255,171,0,.15)}
+    .lr.enviado{background:rgba(0,200,83,.04);border-color:rgba(0,200,83,.12)}
+    .lr.erro{background:rgba(255,23,68,.04);border-color:rgba(255,23,68,.15)}
+    .li{flex:1;min-width:0}
+    .lh{font-weight:600;font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .lm{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted2);margin-top:1px}
+    .lbtns{display:flex;gap:4px;flex-shrink:0}
+
+    /* Badges */
+    .badge{display:inline-flex;align-items:center;padding:1px 6px;border-radius:20px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;text-transform:uppercase}
+    .badge-pendente{background:rgba(255,255,255,.05);color:var(--muted2)}
+    .badge-processando{background:rgba(255,171,0,.12);color:var(--yellow)}
+    .badge-enviado{background:rgba(0,200,83,.12);color:var(--green)}
+    .badge-erro{background:rgba(255,23,68,.12);color:var(--red)}
+
+    /* Templates */
+    .trow{display:flex;gap:6px;margin-bottom:10px}
+    .trow select{margin-bottom:0;flex:1}
+
+    /* Niche */
+    .nrow{display:flex;gap:6px;margin-bottom:10px}
+    .nrow input{margin-bottom:0;flex:1}
+    .niche-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+    .chip{padding:4px 10px;border-radius:20px;font-size:11px;border:1px solid var(--border2);background:var(--panel2);color:var(--muted2);cursor:pointer;transition:all .15s}
+    .chip:hover{border-color:rgba(0,229,255,.4);color:var(--accent)}
+    .nresults{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:200px;overflow-y:auto;margin-top:8px}
+    .nresults::-webkit-scrollbar{width:2px}
+    .nresults::-webkit-scrollbar-thumb{background:var(--border2)}
+    .nrc{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;animation:fi .2s ease}
+    .nrc:hover{border-color:rgba(0,229,255,.25)}
+    .nrh{font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .nrm{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted2);margin:3px 0}
+    .nra{display:flex;gap:4px}
+
+    /* Extractor */
+    .ec{position:absolute;top:8px;right:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--accent);background:var(--panel2);padding:1px 5px;border-radius:4px}
+    .ew{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;max-height:120px;overflow-y:auto;line-height:2;margin-top:8px}
+    .ew::-webkit-scrollbar{width:2px}
+    .ew::-webkit-scrollbar-thumb{background:var(--border2)}
+
+    /* Dedup */
+    .dedup{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--yellow);background:rgba(255,171,0,.07);border:1px solid rgba(255,171,0,.2);border-radius:7px;padding:6px 10px;margin-bottom:10px;display:none}
+    .dedup.show{display:block}
+
+    /* Log */
+    .logbox{background:#04070d;padding:10px 12px;height:110px;overflow-y:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;border-radius:0 0 12px 12px}
+    .logbox::-webkit-scrollbar{width:2px}
+    .logbox::-webkit-scrollbar-thumb{background:var(--border2)}
+    .le{padding:1px 0;display:flex;gap:8px}
+    .lt{color:var(--accent2);flex-shrink:0}
+    .le.ok .lmsg{color:var(--green)}.le.err .lmsg{color:var(--red)}.le.warn .lmsg{color:var(--yellow)}
+    .lmsg{color:var(--muted2)}
+
+    /* Toast */
+    .toast{position:fixed;bottom:14px;right:14px;background:var(--panel2);border:1px solid var(--border2);border-radius:10px;padding:9px 14px;font-size:12px;z-index:9999;opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none;max-width:240px}
+    .toast.show{opacity:1;transform:translateY(0)}
+    .toast.ok{border-color:rgba(0,200,83,.4);color:var(--green)}
+    .toast.err{border-color:rgba(255,23,68,.4);color:var(--red)}
+    .toast.warn{border-color:rgba(255,171,0,.4);color:var(--yellow)}
+
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .spin{display:inline-block;animation:spin 1s linear infinite}
+    .sep{height:1px;background:var(--border);margin:10px 0}
+    .empty{text-align:center;padding:24px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)}
+  </style>
+</head>
+<body>
+
+<!-- ══ MINIMIZED BAR ══ -->
+<div id="minimizedBar">
+  <div class="mini-brand">
+    <!-- Ícone aviãozinho ciano -->
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M22 2L11 13" stroke="#00e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#00e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Direct<span>Speed</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="mini-status" id="miniStatus">Parado</span>
+    <button class="mini-expand" id="expandBtn">▲ Expandir</button>
+  </div>
+</div>
+
+<!-- ══ LOGIN SCREEN ══ -->
+<div class="screen active" id="screen-login">
+  <div class="login-wrap">
+    <div class="login-logo">
+      <!-- Ícone aviãozinho ciano -->
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+        <rect width="24" height="24" rx="7" fill="#0d1117"/>
+        <path d="M20 2L10 12" stroke="#00e5ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M20 2L14 20L10 12L2 8L20 2Z" stroke="#00e5ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <div class="brand-name">Direct<span>Speed</span></div>
+        <div class="brand-tag">DM Automation</div>
+      </div>
+    </div>
+    <p class="login-subtitle">Digite sua chave de acesso<br>para liberar o painel.</p>
+    <div class="key-input-wrap">
+      <input id="keyInput" type="password" placeholder="DS-XXXX-XXXX-XXXX" maxlength="20"/>
+      <span class="key-eye" id="eyeBtn">👁</span>
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <button class="btn btn-cyan btn-full" id="loginBtn">
+      <span id="loginBtnTxt">Entrar</span>
+    </button>
+    <p class="login-info">Chave fornecida pelo administrador.</p>
+  </div>
+</div>
+
+<!-- ══ MAIN SCREEN ══ -->
+<div class="screen" id="screen-main">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-brand">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <rect width="24" height="24" rx="6" fill="#0d1117"/>
+        <path d="M20 2L10 12" stroke="#00e5ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M20 2L14 20L10 12L2 8L20 2Z" stroke="#00e5ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <div class="header-name">Direct<span>Speed</span></div>
+        <span class="user-pill" id="userPill">—</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-pill" id="statusPill">
+        <div class="sdot" id="sdot"></div>
+        <span id="statusTxt">Offline</span>
+      </div>
+      <button class="minimize-btn" id="minimizeBtn" title="Minimizar">—</button>
+      <button class="logout-btn" id="logoutBtn" title="Sair">✕</button>
+    </div>
+  </div>
+
+  <!-- Status bar da automação -->
+  <div class="status-bar">
+    <span class="status-bar-txt" id="automationStatus">Missão parada</span>
+    <span class="msg-active-badge" id="msgActiveBadge">MSG 1</span>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><span class="sv c" id="totalCount">0</span><span class="sl">Total</span></div>
+    <div class="stat"><span class="sv g" id="sentCount">0</span><span class="sl">Enviados</span></div>
+    <div class="stat"><span class="sv r" id="errorCount">0</span><span class="sl">Erros</span></div>
+    <div class="stat"><span class="sv y" id="todayCount">0</span><span class="sl">Hoje</span></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" id="tabDisparo">🚀 Disparo</button>
+    <button class="tab" id="tabProspeccao">🔍 Prospecção</button>
+    <button class="tab" id="tabExtrator">⚡ Extrator</button>
+  </div>
+
+  <!-- ── TAB: DISPARO ── -->
+  <div class="tc active" id="tc-disparo">
+
+    <!-- Mensagens -->
+    <div class="card">
+      <div class="ch">
+        <div class="ct"><div class="dc cyan"></div> Mensagens</div>
+        <div style="display:flex;gap:6px">
+          <div class="trow" style="margin:0">
+            <select id="templateSelect" style="margin:0;width:140px;padding:4px 8px;font-size:11px">
+              <option value="">— Template —</option>
+            </select>
+          </div>
+          <button class="btn btn-sm" id="saveTemplateBtn">Salvar</button>
+          <button class="btn btn-sm btn-danger" id="deleteTemplateBtn">✕</button>
+        </div>
+      </div>
+      <div class="cb">
+        <label class="lbl">Nome do template</label>
+        <input id="templateName" type="text" placeholder="Ex: Abordagem inicial" style="margin-bottom:8px"/>
+
+        <label class="lbl">Mensagem 1 (use {user} para mencionar)</label>
+        <textarea id="message1" rows="3" placeholder="Oii {user}, tudo bem? 😊&#10;Somos da Chantê Beauty..."></textarea>
+
+        <label class="lbl">Mensagem 2 (alternativa)</label>
+        <textarea id="message2" rows="3" placeholder="Olá {user}! 💗&#10;Vi seu perfil e..."></textarea>
+
+        <div class="r2" style="margin-top:4px">
+          <div>
+            <label class="lbl">Alternar a cada X leads</label>
+            <input id="switchEvery" type="number" value="20" min="1" style="margin-bottom:0"/>
+          </div>
+          <div style="display:flex;align-items:flex-end;padding-bottom:0">
+            <button class="btn btn-sm" id="resetCounterBtn" style="width:100%;justify-content:center">↺ Reset contador</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leads -->
+    <div class="card">
+      <div class="ch">
+        <div class="ct"><div class="dc purple"></div> Leads</div>
+        <label style="cursor:pointer" class="btn btn-sm" for="fileInput">↑ .txt
+          <input id="fileInput" type="file" accept=".txt" style="display:none">
+        </label>
+      </div>
+      <div class="cb">
+        <div id="dedupNotice" class="dedup"></div>
+        <label class="lbl">Lista de @ — um por linha</label>
+        <textarea id="leads" rows="4" placeholder="@handle1&#10;@handle2"></textarea>
+        <div class="cr">
+          <button class="btn btn-cyan btn-sm" id="loadLeadsBtn">+ Carregar</button>
+          <button class="btn btn-sm" id="clearAllBtn">✕ Limpar</button>
+          <button class="btn btn-sm" id="exportDataBtn">↓ JSON</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Config -->
+    <div class="card">
+      <div class="ch"><div class="ct"><div class="dc yellow"></div> Configurações</div></div>
+      <div class="cb">
+        <div class="r3">
+          <div><label class="lbl">Ordem</label>
+            <select id="orderMode"><option value="sequencial">Sequencial</option><option value="aleatorio">Aleatório</option></select></div>
+          <div><label class="lbl">Limite/dia</label>
+            <input id="dailyLimit" type="number" value="30" min="1"/></div>
+          <div><label class="lbl">Delay mín (s)</label>
+            <input id="minDelay" type="number" value="60" min="10"/></div>
+        </div>
+        <div class="r2">
+          <div><label class="lbl">Delay máx (s)</label>
+            <input id="maxDelay" type="number" value="180" min="20"/></div>
+          <div></div>
+        </div>
+
+        <!-- Toggles -->
+        <div style="border:1px solid var(--border);border-radius:8px;padding:4px 10px;margin-top:4px">
+          <div class="toggle-row">
+            <div class="toggle-label">
+              Reinício automático
+              <small>Reinicia a missão se travar ou parar com erro</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="autoRestartToggle"/>
+              <div class="toggle-track"></div>
+              <div class="toggle-thumb"></div>
+            </label>
+          </div>
+        </div>
+
+        <div class="pw"><div class="pb" id="progressBar" style="width:0%"></div></div>
+        <div class="plb"><span id="progressText">0/0</span><span id="progressPct">0%</span></div>
+      </div>
+    </div>
+
+    <!-- Controle -->
+    <div class="card">
+      <div class="ch"><div class="ct"><div class="dc green"></div> Controle</div></div>
+      <div class="cb">
+        <div class="cr">
+          <button class="btn btn-sm" id="openIGBtn">⬡ Instagram</button>
+          <button class="btn btn-sm" id="pauseBotBtn">⏸ Pausar</button>
+          <button class="btn btn-sm btn-danger" id="resetBotBtn">↺ Reset fila</button>
+        </div>
+        <button class="mbtn" id="missionBtn">
+          <span id="missionIcon">▶</span>
+          <span id="missionTxt">Iniciar Missão</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Fila -->
+    <div class="card">
+      <div class="ch">
+        <div class="ct"><div class="dc purple"></div> Fila</div>
+        <span id="queueInfo" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted2)">0</span>
+      </div>
+      <div class="ls" id="list"><div class="empty">Nenhum lead carregado</div></div>
+    </div>
+
+    <!-- Log -->
+    <div class="card" style="margin-bottom:0">
+      <div class="ch">
+        <div class="ct"><div class="dc gray"></div> Log</div>
+        <button class="btn btn-sm" id="clearLogBtn">Limpar</button>
+      </div>
+      <div class="logbox" id="logbox"></div>
+    </div>
+
+  </div><!-- /tc-disparo -->
+
+  <!-- ── TAB: PROSPECÇÃO ── -->
+  <div class="tc" id="tc-prospeccao">
+    <div class="card">
+      <div class="ch"><div class="ct"><div class="dc purple"></div> Busca por Nicho</div></div>
+      <div class="cb">
+        <div class="niche-chips">
+          <span class="chip" id="chipMaquiagem" data-niche="maquiagem influencer brasil">maquiagem</span>
+          <span class="chip" id="chipSkincare" data-niche="skincare natural influencer">skincare</span>
+          <span class="chip" id="chipFitness" data-niche="fitness feminino influencer">fitness</span>
+          <span class="chip" id="chipCabelo" data-niche="beleza cabelo influencer brasil">cabelo</span>
+          <span class="chip" id="chipLifestyle" data-niche="lifestyle bem estar influencer">lifestyle</span>
+        </div>
+        <label class="lbl">Nicho / Público</label>
+        <div class="nrow">
+          <input id="nicheQuery" type="text" placeholder="Ex: maquiagem SP influencer"/>
+          <button class="btn btn-purple btn-sm" id="searchBtn">
+            <span id="searchBtnTxt">Buscar</span>
+          </button>
+        </div>
+        <div id="nicheWrap" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span id="nicheCount" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted2)"></span>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-sm btn-success" id="addAllNicheBtn">+ Todos</button>
+              <button class="btn btn-sm btn-danger" id="clearNicheBtn">✕</button>
+            </div>
+          </div>
+          <div class="nresults" id="nicheResults"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct"><div class="dc yellow"></div> Validar Perfil</div></div>
+      <div class="cb">
+        <div class="nrow">
+          <input id="validateInput" type="text" placeholder="@username"/>
+          <button class="btn btn-sm" id="valBtn" style="border-color:rgba(255,171,0,.4);color:var(--yellow)">Validar</button>
+        </div>
+        <div id="valResult" style="display:none;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:8px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--panel2)"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: EXTRATOR ── -->
+  <div class="tc" id="tc-extrator">
+    <div class="card">
+      <div class="ch"><div class="ct"><div class="dc cyan"></div> Extrator de @</div></div>
+      <div class="cb">
+        <label class="lbl">Cole qualquer texto com @mentions</label>
+        <div style="position:relative">
+          <textarea id="rawText" rows="6" placeholder="Cole aqui resultado do Google, lista, bios, posts..."></textarea>
+          <span class="ec" id="ec" style="display:none"></span>
+        </div>
+        <div id="extWrap" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span id="extInfo" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted2)"></span>
+            <div style="display:flex;gap:5px">
+              <button class="btn btn-sm btn-cyan" id="sendExtToLeadsBtn">→ Leads</button>
+              <button class="btn btn-sm" id="copyExtBtn">⎘</button>
+              <button class="btn btn-sm btn-danger" id="clearExtBtn">✕</button>
+            </div>
+          </div>
+          <div class="ew" id="extList"></div>
+        </div>
+        <div class="sep"></div>
+        <div class="r2">
+          <div><label class="lbl">Mín. chars</label><input id="minChars" type="number" value="3" min="1"/></div>
+          <div><label class="lbl">Excluir (vírgula)</label><input id="excludeWords" type="text" placeholder="bot, oficial"/></div>
+        </div>
+        <button class="btn btn-sm btn-full" id="applyFiltersBtn">Aplicar filtros</button>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="ch">
+        <div class="ct"><div class="dc gray"></div> Já enviados</div>
+        <button class="btn btn-sm btn-danger" id="clearHistoryBtn">Limpar</button>
+      </div>
+      <div class="cb">
+        <div id="histList" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted2);max-height:130px;overflow-y:auto"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /screen-main -->
+
+<div class="toast" id="toast"></div>
+<script src="popup.js"></script>
+</body>
+</html>
