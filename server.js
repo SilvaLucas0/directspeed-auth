@@ -20,9 +20,9 @@ const KEYS = {
     expiresAt: null,   // sem expiração
     active: true
   },
-  "DS-BETA-2024-0002": {
-    user: "Carol",
-    expiresAt: "2025-12-31",
+  "DS-BETA-2026-0002": {
+    user: "Neto",
+    expiresAt: "null",
     active: true
   },
   "DS-GAMA-2024-0003": {
