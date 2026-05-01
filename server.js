@@ -22,7 +22,7 @@ const KEYS = {
   },
   "DS-BETA-2026-0002": {
     user: "Neto",
-    expiresAt: "null",
+    expiresAt: null",
     active: true
   },
   "DS-GAMA-2024-0003": {
