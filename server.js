@@ -19,7 +19,7 @@ const KEYS = {
     active: true
   },
   "DS-BETA-2024-0002": {
-    user: "Neto",
+    user: "Alexandre",
     expiresAt: null,
     active: true
   },
